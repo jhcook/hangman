@@ -14,6 +14,7 @@ Author: Justin Cook
 import argparse
 import random
 import curses
+import logging
 
 def gallows(stdscr):
     """Draw the gallows"""
@@ -77,12 +78,6 @@ def left_shoe(stdscr):
     stdscr.addstr(10, 9, "\u250A\u2502")
     stdscr.addstr(11, 8, "\u2537\u2501\u2519")
 
-def get_word():
-    """Get a word and definition from the dictionary"""
-    with open('EDMTDictionary.json', 'r', encoding='utf-8') as data:
-        dict = json.load(data)
-    return dict[random.randint(0, len(dict))]
-
 GAME = {
     0: lambda x: x,
     1: head,
@@ -96,30 +91,55 @@ GAME = {
     9: left_shoe
 }
 
+DICTIONARY = {}
 THE_WORD = None
 CURRENT = None
+THE_DEFO = None
+
+def read_dictionary(dictionary, selected):
+    """Read the dictionary"""
+    global DICTIONARY
+    DICTIONARY[selected] = {}
+    with open(f"{dictionary}/data.{selected}", 'r', encoding='utf-8') as d:
+        logging.debug(f"Reading {dictionary}/data.{selected}")
+        while True:
+            line = d.readline()
+            if not line:
+                break
+            try:
+                if line[0].isdigit() and '|' in line:
+                    rubbish, defo = line.split('|')
+                    wrd  = rubbish.split()[4]
+                    defo = line.split('|')[1]
+                DICTIONARY[selected][wrd] = defo
+            except (IndexError, UnboundLocalError):
+                pass
 
 def update_word(ltr):
     """Print out THE_WORD with chars that match `ltr`"""
-    global CURRENT
+    global CURRENT, THE_WORD
     indices = [i for i, ch in enumerate(THE_WORD) if ltr == ch]
     for i in indices:
-        CURRENT[i] = ltr 
+        CURRENT[i] = ltr
 
-def main(stdscr, cargs):
-    """Play the game"""
-    global THE_WORD, CURRENT
-    curses.curs_set(0)
-    stdscr.clear()
-    stdscr.refresh()
+def word_finished():
+    """Return True if all letters guessed"""
+    global CURRENT
+    for char in CURRENT:
+        if char != ' ' and char == '_':
+            return False
+    return True
 
-    menu_options = ("Noun", "Verb", "Adjective", "Adverb")
+def get_word(stdscr, dictionary):
+    """Get a word and definition from the dictionary"""
+    global DICTIONARY, CURRENT, THE_DEFO, THE_WORD
+    menu = {"Noun": "noun", "Verb": "verb", "Adjective": "adj", "Adverb": "adv"}
     current_option = 0
 
+    #stdscr.clear()
     while True:
-        stdscr.clear()
-        for i, option in enumerate(menu_options):
-            x = 10
+        for i, option in enumerate(menu.keys()):
+            x = 15
             y = 5 + i
             if i == current_option:
                 stdscr.addstr(y, x, option, curses.A_REVERSE)
@@ -131,61 +151,74 @@ def main(stdscr, cargs):
 
         # Handle arrow keys
         if key == curses.KEY_UP:
-            current_option = (current_option - 1) % len(menu_options)
+            current_option = (current_option - 1) % len(menu.keys())
         elif key == curses.KEY_DOWN:
-            current_option = (current_option + 1) % len(menu_options)
+            current_option = (current_option + 1) % len(menu.keys())
         elif key == 10:  # Enter key
-            selected_option = menu_options[current_option]
+            selected = menu[list(menu.keys())[current_option]]
+            logging.debug(f"Selected: {selected}")
             stdscr.clear()
             break
 
+    if selected not in DICTIONARY:
+        read_dictionary(dictionary, selected)
+
+    THE_WORD = random.choice(list(DICTIONARY[selected].keys()))
+    logging.info(f"Word: {THE_WORD}")
+    CURRENT = ['_' if c != '_' else ' ' for c in THE_WORD]
+    THE_DEFO = DICTIONARY[selected][THE_WORD].split(';')[0].strip()
+
+def play_word(stdscr):
+    """Play the word"""
+    global DICTIONARY, THE_WORD, CURRENT, THE_DEFO
+
+    curses.curs_set(0)
+    stdscr.clear()
     stdscr.refresh()
 
-    dictionary = {}
-
-    with open(cargs.dictionary, 'r', encoding='utf-8') as d:
-        while True:
-            line = d.readline()
-            if not line:
-                break
-            try:
-                if line[0].isdigit() and '|' in line:
-                    rubbish, defo = line.split('|')
-                    wrd  = rubbish.split()[4]
-                    defo = line.split('|')[1]
-                dictionary[wrd] = defo
-            except (IndexError, UnboundLocalError):
-                pass
-
-    THE_WORD = random.choice(list(dictionary.keys()))
-    the_defo = dictionary[THE_WORD].split(';')[0].strip()
-    CURRENT = ['_' if c != '_' else ' ' for c in THE_WORD]
-
     gallows(stdscr)
-    stdscr.addstr(14, 0, the_defo)
+    stdscr.addstr(14, 0, THE_DEFO)
     stdscr.addstr(16, 5, "".join(CURRENT))
 
+    break_out = False
     for i in range(len(GAME.keys())):
         GAME[i](stdscr)
+        if i >= len(GAME.keys()) - 1:
+            break
         while True:
             letter = stdscr.getch()
             if chr(letter) not in THE_WORD:
                 break
             update_word(chr(letter))
             stdscr.addstr(16, 5, "".join(CURRENT))
+            if word_finished():
+                logging.info(f"Guessed word: {''.join(CURRENT)}")
+                break_out = True
+                break
+        if break_out:
+            break
 
-    stdscr.addstr(16, 5, THE_WORD)
+    stdscr.addstr(16, 5, THE_WORD.replace("_", " "))
     stdscr.getch()
+
+def main(stdscr, cargs):
+    """Play the game"""
+    while True:
+        get_word(stdscr, cargs.dictionary)
+        play_word(stdscr)
 
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description="Play Hangman")
     parser.add_argument("-d", "--dictionary", required=True,
-                        help="Path to the dictionary file")
+                        help="Path to the dictionary directory")
+    parser.add_argument("-l", "--logfile", required=False, default="logfile.log",
+                        help="Path to the logfile")
     args = parser.parse_args()
+
+    logging.basicConfig(level=logging.DEBUG, filename=f"{args.logfile}")
 
     try:
         curses.wrapper(main, args)
     except KeyboardInterrupt:
         exit(0)
-
