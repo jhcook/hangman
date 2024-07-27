@@ -166,11 +166,12 @@ def get_word(stdscr, dictionary):
     THE_WORD = random.choice(list(DICTIONARY[selected].keys()))
     logging.info(f"Word: {THE_WORD}")
     CURRENT = ['_' if c != '_' else ' ' for c in THE_WORD]
+    update_word('-')
     THE_DEFO = DICTIONARY[selected][THE_WORD].split(';')[0].strip()
 
 def play_word(stdscr):
     """Play the word"""
-    global DICTIONARY, THE_WORD, CURRENT, THE_DEFO
+    global THE_WORD, CURRENT, THE_DEFO
 
     curses.curs_set(0)
     stdscr.clear()
