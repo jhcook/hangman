@@ -35,6 +35,7 @@ def neck(stdscr):
 
 def torso(stdscr):
     """Draw the torso"""
+    stdscr.addstr(2, 6, "\u2502\u25D5\u005F\u25D5\u2502")
     stdscr.addstr(4, 5, "\u2500" * 2 + "\u2518")
     stdscr.addstr(4, 9, "\u2514" + "\u2500" * 2)
     stdscr.addstr(5, 6, "\u2577   \u2577")
@@ -62,6 +63,7 @@ def right_leg(stdscr):
 
 def left_leg(stdscr):
     """Draw the left leg"""
+    stdscr.addstr(2, 6, "\u2502\u2576\u005F\u2574\u2502")
     stdscr.addstr(7, 10, "\u2502")
     stdscr.addstr(8, 10, "\u2502")
     stdscr.addstr(9, 10, "\u2524")
@@ -74,6 +76,7 @@ def right_shoe(stdscr):
 
 def left_shoe(stdscr):
     """Draw the left shoe"""
+    stdscr.addstr(2, 6, "\u2502\u2A37\u2054\u2A37\u2502")
     stdscr.addstr(9, 8, "\u253C\u2500\u2524")
     stdscr.addstr(10, 9, "\u250A\u2502")
     stdscr.addstr(11, 8, "\u2537\u2501\u2519")
